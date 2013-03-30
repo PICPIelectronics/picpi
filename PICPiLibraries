@@ -1,0 +1,119 @@
+#!/usr/bin/python
+# I2C test program for RPi
+# This will write one byte and then read it back to the screen
+
+#i2c setup instructions for the pi
+# allow i2c by removing from this blacklist
+# sudo nano /etc/modprobe.d/raspi-blacklist.conf 
+
+# add ic2-dev to end of this file
+# sudo nano /etc/modules
+
+# needs python-smbus, install it like this:
+# sudo apt-get update
+# sudo apt-get install i2c-tools
+# sudo apt-get install python-smbus
+# sudo adduser pi i2c
+# sudo reboot -n
+
+#not needed anymore if above worked
+# sudo modprobe i2c-dev
+
+
+import smbus
+import time
+import RPi.GPIO as GPIO
+import serial
+
+# open Linux device /dev/ic2-0
+i2c = smbus.SMBus(1)
+
+#24c64 address with address pins low
+address = 0x10
+dat = 20
+addrl = 10
+addrh = 5
+
+#setup gpio on the raspberry pi 
+GPIO.setmode(GPIO.BOARD)
+
+#setup as an output
+GPIO.setup(7, GPIO.OUT)
+
+#setup as an input 
+GPIO.setup(11, GPIO.IN)
+
+
+def relay (number, state):
+        if( number == 1):
+                i2c.write_word_data(address, 88, state)
+        elif( number == 2):
+                i2c.write_word_data(address, 89 ,state)
+
+def analogIn(pin):
+       location = pin -1  
+       d= i2c.read_word_data(address, location)
+       f =( d*5)/ float(1023)
+       return "%.2f" % f 
+
+
+def button():
+  a = GPIO.input(11)
+	if(a == False):
+		b = "Button Pressed" 
+        if(a == True):
+		b = "Button not pressed" 
+	return b 
+
+
+def led(state):
+        if (state==1):
+                GPIO.output(7,GPIO.HIGH)
+        elif(state==0):
+                GPIO.output(7,GPIO.LOW)
+                
+def digitalIn(pin):
+        #off set for direction register 
+        reg = pin + 21
+        #set up as input
+        input =0
+        i2c.write_word_data(address,reg,input)
+        #off set for digital input registers
+        location = pin + 43
+        a = i2c.read_word_data(address,location)
+        return a
+
+def digitalOut(pin, state):
+        #off set for the direction register 
+        reg=pin + 21
+        output=1
+        i2c.write_word_data(address,22,1)
+        #off set for digital outputs
+        location = pin + 65
+        i2c.write_word_data(address,66,state)
+
+def analogOut(pin,voltage):
+        voltage = float(voltage) * float(12.5)
+        if(pin==1):
+                i2c.write_word_data(address,90,int(voltage))
+        elif(pin==2):
+                i2c.write_word_data(address,91,int(voltage))
+                
+def rs232tx (baud,string):
+	serialport = serial.Serial("/dev/ttyAMA0", baud, timeout=0.5)
+        serialport.write(string)
+
+def rs232rx(baud):
+	serialport= serial.Serial("/dev/ttyAMA0",baud, timeout =0.5)
+	responce = serialport.readlines(None)
+	return responce 
+	
+def rs485rx():	
+	a= i2c.read_word_data(address,100)
+	b= chr(a)
+	return b
+ 
+
+
+
+
